@@ -1,79 +1,125 @@
 import requests
 import time
-from urllib.parse import urlencode
+import sys
+import json
+import os
 
 TOKEN = '7b23e40ad10e08d3b7a8ec0956f2c57910c455e886b480b7d9fb59859870658c4a0b8fdc4dd494db19099'
-VK_URL = 'https://vk.com/'
+
+
+def get_user_friends(token, user_vk_id):
+    """Функция принимает id-пользователя vk и токен авторизации.
+    С помощью requests запрашивает данные о друзьях,
+    пользователя. Возвращает json-объект."""
+    print('Получение списка друзей...')
+    response = requests.get("https://api.vk.com/method/friends.get",
+                            params=dict(
+                                access_token=token,
+                                user_id=user_vk_id,
+                                v='5.80'
+                                )
+                            )
+    print('Успешно')
+    return response.json()
+
+
+def get_user_groups(token, user_vk_id):
+    """Функция принимает id-пользователя vk и токен авторизации.
+    С помощью requests запрашивает данные о группах,
+    в которых состоит пользователь. Возвращает json-объект."""
+    response = requests.get('https://api.vk.com/method/groups.get',
+                            params=dict(
+                                access_token=token,
+                                user_id=user_vk_id,
+                                v='5.80'
+                                )
+                            )
+    return response.json()
+
+
+def get_friends_groups(token, user_friends_list):
+    """Функция принимает список id-пользователей VK, токен авторизации.
+    Пробует получить данные методом requests. Возвращает общий список
+    групп по всем пользователям из списка user_friends_list.
+    """
+    print('Получение списка групп друзей пользователя...', end='')
+    friends_groups_lst = []
+    print('прогресс:', end='')
+    for friend_id in user_friends_list:
+        try:
+            for group_id in get_user_groups(token, friend_id)["response"]["items"]:
+                friends_groups_lst.append(group_id)
+            time.sleep(0.35)
+            sys.stdout.write("*")
+            sys.stdout.flush()
+        except KeyError:
+            continue
+    print('\nУспешно')
+    print("Обработано {0} друзей, собрано {1} групп."
+          .format(len(user_friends_list), len(friends_groups_lst)))
+    return friends_groups_lst
+
+
+def get_groups_info(groups_id, token):
+    """Функция получает список id групп и токен,
+    c помощью requests получает список данных по всем группам из groups_id.
+    """
+    print('Получение данных по секретным группам...')
+    groups_lst = requests.get('https://api.vk.com/method/groups.getById',
+                            params=dict(
+                                access_token=token,
+                                group_ids='{}'.format(",".join([str(gid) for gid in groups_id])),
+                                fields="members_count",
+                                v='5.80'
+                                )
+                            )
+    res_lst = []
+    for group in groups_lst.json()['response']:
+        group_data = {}
+        try:
+            group_data['name'] = group['name']
+        except KeyError:
+            group_data['name'] = 'not available'
+        try:
+            group_data['gid'] = group['id']
+        except KeyError:
+            group_data['gid'] = 'not available'
+        try:
+            group_data['members_count'] = group['members_count']
+        except KeyError:
+            group_data['members_count'] = 'not available'
+        res_lst.append(group_data)
+    print('Успешно')
+    return res_lst
 
 
 if __name__ == '__main__':
-    print('********** START PROGRAMM **********')
-    # main_id = int(input('Введите идентификатор пользователя для подбора: '))  # Для ввода id с консоли
-    main_id = 171691064
-    params = {
-        'access_token': TOKEN,
-        'v': '5.80'
-    }
-    # Получим список друзей пользователя
-    response = requests.get('https://api.vk.com/method/friends.get', params)
-    # print(response.json()["response"])
-    print('Всего друзей:', response.json()["response"]["count"])
-    friends_id_list = response.json()["response"]["items"]
-    print('Список ID друзей пользователя:\n', friends_id_list)
+    print('********************************* START PROGRAMM *********************************\n'
+          'Программа выяснит в каких группах, в которых состоит пользователь, нет его друзей.\n'
+          '**********************************************************************************')
+    user_choise = ''
+    while user_choise != 'quit' and user_choise != 'q':
+        user_choise = input('Введите команду:\n'
+                            'Начать подбор - введите "start"\n'
+                            'Выйти - введите "quit" или "q"\n'
+                            ).lower()
+        if user_choise == 'start':
+            # main_id = int(input('Введите идентификатор пользователя для подбора: '))  # Для ввода id с консоли
+            main_id = 171691064  # ID Евгения Шмаргунова
 
-    print('===============')
-    # Получим список групп пользователя
-    params['user_id'] = main_id
-    response = requests.get('https://api.vk.com/method/friends.get', params)
-    print('Кол-во групп, в которых состоит пользователь: ', response.json()["response"]["count"])
-    # print(response.json()["response"]["items"])
-    groups_main_user = response.json()["response"]["items"]
-    # print("Groups list: \n", groups_main_user)
+            user_friends_list = get_user_friends(TOKEN, main_id)["response"]["items"] # Получили список друзей пользователя
+            print('Получение списка групп пользователя...')
+            main_user_groups = get_user_groups(TOKEN, main_id)["response"]["items"]  # Получили список групп пользователя
+            if main_user_groups:
+                print('Успешно')
 
-    print('===============')
-    # Получим список групп друзей пользователя
-    сommon_list_of_friends_groups = []  # Задали список, в который будем сохранять все группы друзей
-    for friend_id in friends_id_list[20:50]:  # Для отладки сделал срез 40 первый друзей
-        params['user_id'] = friend_id
-        print(' . ', end=' ')
-        response = requests.get('https://api.vk.com/method/friends.get', params)
-        time.sleep(0.35)
-        # print(response.json())
-        # ДОБАВИТЬ ПРОВЕРКУ существует ли вообще список групп, так решим проблему
-        # с удаленными или заблокированными пользователями!!!!!
-        if 'error' in response.json():
-            continue
-        elif response.json()["response"]["items"]:
-            if len(response.json()["response"]["items"]) > 1:
-                for group_id in response.json()["response"]["items"]:
-                    сommon_list_of_friends_groups.append(group_id)
-            else:
-                сommon_list_of_friends_groups.append(response.json()["response"]["items"])
-    # print('сommon_list_of_friends_groups', сommon_list_of_friends_groups)
-    print("Собрали список всех групп, в которых состоят друзья пользователя.\n Кол-во групп: {0}".format(
-         len(сommon_list_of_friends_groups)))
-    print('Получим множество групп из общего списка.')
-    common_set_groups = set(сommon_list_of_friends_groups)
-    print('Всего групп: {0}'.format(len(common_set_groups)))
-    # Узнаем в каких группах состоит только пользователь, но ни один из его друзей.
-    # Преобразуем список групп пользователя во множество:
-    main_user_groups_set = set(groups_main_user)
-    print('main_user_groups_set', main_user_groups_set)
-    print('Получим группы пользователя, в которых нет его друзей:\n {0}'.format(main_user_groups_set - common_set_groups))
-    print('Кол-во групп: {0}'.format(len(main_user_groups_set - common_set_groups)))
-    res_group_lst = list(main_user_groups_set - common_set_groups)
-    print('Сделали из множества список длинной: {0} элемента.'.format(len(res_group_lst)))
-    # Далее по списку проходимся и делаем запрос для получения информации о группе:
-    # (Название, идентификаор, кол-во участников)
-    
+            secret_groups = set(main_user_groups) - set(get_friends_groups(TOKEN, user_friends_list))  # Множество групп
+            print('Кол-во обнаруженных секретных групп: {0}'.format(len(secret_groups)))
+            secret_groups_info = get_groups_info(secret_groups, TOKEN)
 
-
-
-
-
-
-
-
-
-
-
+            print('Сохранение данных...')
+            with open('groups.json', 'w') as f:
+                json.dump(secret_groups_info, f, indent=4, ensure_ascii=False)
+            if os.path.isfile("groups.json"):
+                print('Данные успешно сохранены в файле groups.json')
+            print('********************************* NEXT SELECTION *********************************')
