@@ -10,7 +10,9 @@ TOKEN = '7b23e40ad10e08d3b7a8ec0956f2c57910c455e886b480b7d9fb59859870658c4a0b8fd
 def get_user_friends(token, user_vk_id):
     """Функция принимает id-пользователя vk и токен авторизации.
     С помощью requests запрашивает данные о друзьях,
-    пользователя. Возвращает json-объект."""
+    пользователя. Возвращает json-объект.
+    """
+
     print('Получение списка друзей...')
     response = requests.get("https://api.vk.com/method/friends.get",
                             params=dict(
@@ -26,7 +28,9 @@ def get_user_friends(token, user_vk_id):
 def get_user_groups(token, user_vk_id):
     """Функция принимает id-пользователя vk и токен авторизации.
     С помощью requests запрашивает данные о группах,
-    в которых состоит пользователь. Возвращает json-объект."""
+    в которых состоит пользователь. Возвращает json-объект.
+    """
+
     response = requests.get('https://api.vk.com/method/groups.get',
                             params=dict(
                                 access_token=token,
@@ -42,6 +46,7 @@ def get_friends_groups(token, user_friends_list):
     Пробует получить данные методом requests. Возвращает общий список
     групп по всем пользователям из списка user_friends_list.
     """
+
     print('Получение списка групп друзей пользователя...', end='')
     friends_groups_lst = []
     print('прогресс:', end='')
@@ -64,6 +69,7 @@ def get_groups_info(groups_id, token):
     """Функция получает список id групп и токен,
     c помощью requests получает список данных по всем группам из groups_id.
     """
+
     print('Получение данных по секретным группам...')
     groups_lst = requests.get('https://api.vk.com/method/groups.getById',
                             params=dict(
@@ -107,9 +113,9 @@ if __name__ == '__main__':
             # main_id = int(input('Введите идентификатор пользователя для подбора: '))  # Для ввода id с консоли
             main_id = 171691064  # ID Евгения Шмаргунова
 
-            user_friends_list = get_user_friends(TOKEN, main_id)["response"]["items"] # Получили список друзей пользователя
+            user_friends_list = get_user_friends(TOKEN, main_id)["response"]["items"]
             print('Получение списка групп пользователя...')
-            main_user_groups = get_user_groups(TOKEN, main_id)["response"]["items"]  # Получили список групп пользователя
+            main_user_groups = get_user_groups(TOKEN, main_id)["response"]["items"]
             if main_user_groups:
                 print('Успешно')
 
