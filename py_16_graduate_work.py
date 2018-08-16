@@ -1,10 +1,19 @@
 import requests
+
 import time
-import sys
+
 import json
+
 import os
 
-TOKEN = '7b23e40ad10e08d3b7a8ec0956f2c57910c455e886b480b7d9fb59859870658c4a0b8fdc4dd494db19099'
+
+def get_config_data(file, key_1, key_2):
+    """Функция получает из файла config.json
+    значение заданных переменных."""
+
+    with open(f'{file}') as f:
+        data = json.load(f)
+        return (data[key_1], data[key_2])
 
 
 def get_user_friends(token, user_vk_id):
@@ -50,13 +59,14 @@ def get_friends_groups(token, user_friends_list):
     print('Получение списка групп друзей пользователя...', end='')
     friends_groups_lst = []
     print('прогресс:', end='')
+    count_id = len(user_friends_list)
     for friend_id in user_friends_list:
+        print(f'\rОсталось обработать {count_id} профилей', end='', flush=True)
+        count_id -= 1
         try:
             for group_id in get_user_groups(token, friend_id)["response"]["items"]:
                 friends_groups_lst.append(group_id)
             time.sleep(0.35)
-            sys.stdout.write("*")
-            sys.stdout.flush()
         except KeyError:
             continue
     print('\nУспешно')
@@ -72,13 +82,13 @@ def get_groups_info(groups_id, token):
 
     print('Получение данных по секретным группам...')
     groups_lst = requests.get('https://api.vk.com/method/groups.getById',
-                            params=dict(
-                                access_token=token,
-                                group_ids='{}'.format(",".join([str(gid) for gid in groups_id])),
-                                fields="members_count",
-                                v='5.80'
-                                )
-                            )
+                              params=dict(
+                                  access_token=token,
+                                  group_ids='{}'.format(",".join([str(gid) for gid in groups_id])),
+                                  fields="members_count",
+                                  v='5.80'
+                                  )
+                              )
     res_lst = []
     for group in groups_lst.json()['response']:
         group_data = {}
@@ -103,6 +113,8 @@ if __name__ == '__main__':
     print('********************************* START PROGRAMM *********************************\n'
           'Программа выяснит в каких группах, в которых состоит пользователь, нет его друзей.\n'
           '**********************************************************************************')
+    # Получим config-данные ( токен, main_id
+    TOKEN, main_id = get_config_data('valid_config.json', "token", "id")  # TODO: Изменить имя файла
     user_choise = ''
     while user_choise != 'quit' and user_choise != 'q':
         user_choise = input('Введите команду:\n'
@@ -111,7 +123,6 @@ if __name__ == '__main__':
                             ).lower()
         if user_choise == 'start':
             # main_id = int(input('Введите идентификатор пользователя для подбора: '))  # Для ввода id с консоли
-            main_id = 171691064  # ID Евгения Шмаргунова
 
             user_friends_list = get_user_friends(TOKEN, main_id)["response"]["items"]
             print('Получение списка групп пользователя...')
@@ -119,13 +130,14 @@ if __name__ == '__main__':
             if main_user_groups:
                 print('Успешно')
 
-            secret_groups = set(main_user_groups) - set(get_friends_groups(TOKEN, user_friends_list))  # Множество групп
+            secret_groups = set(main_user_groups) - set(get_friends_groups(TOKEN, user_friends_list))
             print('Кол-во обнаруженных секретных групп: {0}'.format(len(secret_groups)))
             secret_groups_info = get_groups_info(secret_groups, TOKEN)
 
             print('Сохранение данных...')
             with open('groups.json', 'w') as f:
-                json.dump(secret_groups_info, f, indent=4, ensure_ascii=False)
+                json.dump(secret_groups_info, f,
+                          indent=4, ensure_ascii=False)
             if os.path.isfile("groups.json"):
                 print('Данные успешно сохранены в файле groups.json')
             print('********************************* NEXT SELECTION *********************************')
