@@ -15,6 +15,7 @@ def do_api_call(method_name, **request_params):
     результат запроса. Согласно декоратору делается 3
     попытки запроса с ожиданием между ними.
     """
+
     time.sleep(0.33)
     return requests.get("https://api.vk.com/method/{0}".format(method_name), params=request_params)
 
@@ -38,9 +39,11 @@ def get_user_groups(token, user_vk_id):
     Вызывает функцию do_api_call для получения данных от api vk
     методом groups.get и возвращает json-объект.
     """
+
     method_name = 'groups.get'
     request_params = dict(access_token=token, user_id=user_vk_id, v='5.80')
     groups = do_api_call(method_name, **request_params)
+
     return groups.json()
 
 
@@ -67,6 +70,7 @@ def get_friends_groups(token, friends_list):
     print('\nУспешно')
     print("Обработано {0} друзей, собрано {1} групп."
           .format(len(friends_list), len(friends_groups_lst)))
+
     return friends_groups_lst
 
 
@@ -100,6 +104,7 @@ def get_groups_info(groups_id, token):
             group_data['members_count'] = 'not available'
         res_lst.append(group_data)
     print('Успешно')
+
     return res_lst
 
 
