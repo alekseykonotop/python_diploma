@@ -2,5 +2,6 @@
 venv/
 my_notes.txt
 idea/vcs.xml
-code_test.py
 valid_config.json
+groups.json
+actual_config.json
