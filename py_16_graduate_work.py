@@ -4,23 +4,29 @@ import time
 
 import json
 
-import os
 
-from retrying import retry
-
-
-@retry(stop_max_attempt_number=3, wait_fixed=350)
 def do_api_call(method_name, **request_params):
     """Функция производит обращение к api vk и возвращает
     результат запроса. Согласно декоратору делается 3
     попытки запроса с ожиданием между ними.
     """
 
-    time.sleep(0.33)
-    return requests.get("https://api.vk.com/method/{0}".format(method_name), params=request_params)
+    request_params['access_token'] = TOKEN
+    request_params['v'] = '5.80'
+    while True:
+        res = requests.get("https://api.vk.com/method/{0}".format(method_name), params=request_params)
+        try:
+            if res.json()["response"]:
+                return res
+        except KeyError:
+            if res.json()['error']['error_code'] == 6:
+                time.sleep(0.33)
+                continue
+            elif res.json()['error']['error_code'] == 18:
+                return res
 
 
-def get_user_friends(token, user_vk_id):
+def get_user_friends(user_vk_id):
     """Функция принимает id-пользователя vk и токен авторизации.
     Вызывает функцию do_api_call для получения данных от api vk
     методом friends.get и возвращает json-объект.
@@ -28,26 +34,26 @@ def get_user_friends(token, user_vk_id):
 
     print('Получение списка друзей...')
     method_name = "friends.get"
-    request_params = dict(access_token=token, user_id=user_vk_id, v='5.80')
+    request_params = dict(user_id=user_vk_id)
     friends = do_api_call(method_name, **request_params)
 
     return friends.json()
 
 
-def get_user_groups(token, user_vk_id):
+def get_user_groups(user_vk_id):
     """Функция принимает id-пользователя vk и токен авторизации.
     Вызывает функцию do_api_call для получения данных от api vk
     методом groups.get и возвращает json-объект.
     """
 
     method_name = 'groups.get'
-    request_params = dict(access_token=token, user_id=user_vk_id, v='5.80')
+    request_params = dict(user_id=user_vk_id)
     groups = do_api_call(method_name, **request_params)
 
     return groups.json()
 
 
-def get_friends_groups(token, friends_list):
+def get_friends_groups(friends_list):
     """Функция принимает список id-пользователей VK и токен авторизации.
     В цикле вызывает функцию get_user_groups для получения данных о группах.
     Если у пользователя более 1000 групп, то берется только 1000.
@@ -63,8 +69,7 @@ def get_friends_groups(token, friends_list):
         print(f'\rОсталось обработать {count_id} профилей.', end='', flush=True)
         count_id -= 1
         try:
-            for group_id in get_user_groups(token, friend_id)["response"]["items"][:1000]:
-                friends_groups_lst.append(group_id)
+            friends_groups_lst.extend(get_user_groups(friend_id)["response"]["items"])
         except KeyError:
                 continue
     print('\nУспешно')
@@ -74,7 +79,7 @@ def get_friends_groups(token, friends_list):
     return friends_groups_lst
 
 
-def get_groups_info(groups_id, token):
+def get_groups_info(groups_id):
     """Функция получает список id групп и токен.
     Вызывает функцию do_api_call для осуществления
     запроса с методом groups.getById к api vk с
@@ -83,8 +88,8 @@ def get_groups_info(groups_id, token):
 
     print('Получение данных по секретным группам...')
     method_name = 'groups.getById'
-    request_params = dict(access_token=token, group_ids='{}'.format(",".join([str(gid) for gid in groups_id])),
-                          fields="members_count", v='5.80')
+    request_params = dict(group_ids='{}'.format(",".join([str(gid) for gid in groups_id])),
+                          fields="members_count")
     groups_info = do_api_call(method_name, **request_params)
 
     res_lst = []
@@ -108,21 +113,22 @@ def get_groups_info(groups_id, token):
     return res_lst
 
 
-def get_config_data(file_name, key_1, key_2):
+def get_config_data(file_name):
     """Функция получает из config-файла
-    значение заданных переменных для
+    значение переменных для
     авторизации в api vk."""
 
     with open(f'{file_name}') as f:
         data = json.load(f)
-        return data[key_1], data[key_2]
+        return data
 
 
 if __name__ == '__main__':
     print('********************************* START PROGRAMM *********************************\n'
           'Программа выяснит в каких группах, в которых состоит пользователь, нет его друзей.\n'
           '**********************************************************************************')
-    TOKEN, main_id = get_config_data('config.json', "token", "id")
+    config_data = get_config_data('config.json')
+    TOKEN, main_id = config_data["token"],  config_data["id"]
 
     user_choise = ''
     while user_choise != 'quit' and user_choise != 'q':
@@ -131,23 +137,21 @@ if __name__ == '__main__':
                             'Выйти - введите "quit" или "q"\n'
                             ).lower()
         if user_choise == 'start':
-            # main_id = int(input('Введите идентификатор пользователя для подбора: '))  # Для ввода id с консоли
-            user_info = get_user_friends(TOKEN, main_id)
+            user_info = get_user_friends(main_id)
             user_friends_list = user_info["response"]["items"]
             print('У пользователя {0} друзей.'.format(user_info["response"]["count"]))
             print('Получение списка групп пользователя...')
-            main_user_groups = get_user_groups(TOKEN, main_id)["response"]["items"][:1000]
+            main_user_groups = get_user_groups(main_id)["response"]["items"]
             if main_user_groups:
                 print('Успешно')
 
-            secret_groups = set(main_user_groups) - set(get_friends_groups(TOKEN, user_friends_list))
+            secret_groups = set(main_user_groups) - set(get_friends_groups(user_friends_list))
             print('Кол-во обнаруженных секретных групп: {0}'.format(len(secret_groups)))
-            secret_groups_info = get_groups_info(secret_groups, TOKEN)
+            secret_groups_info = get_groups_info(secret_groups)
 
             print('Сохранение данных...')
             with open('groups.json', 'w') as gr:
                 json.dump(secret_groups_info, gr,
                           indent=4, ensure_ascii=False)
-            if os.path.isfile("groups.json"):
-                print('Данные успешно сохранены в файле groups.json')
+            print('Данные успешно сохранены в файле groups.json')
             print('********************************* NEXT SELECTION *********************************')
