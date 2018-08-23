@@ -7,8 +7,9 @@ import json
 
 def do_api_call(method_name, **request_params):
     """Функция производит обращение к api vk и возвращает
-    результат запроса. Согласно декоратору делается 3
-    попытки запроса с ожиданием между ними.
+    результат запроса. Будет делать запросы в цикле с задержкой,
+    если получает ответ о превышении кол-во запросов.
+
     """
 
     request_params['access_token'] = TOKEN
@@ -27,7 +28,7 @@ def do_api_call(method_name, **request_params):
 
 
 def get_user_friends(user_vk_id):
-    """Функция принимает id-пользователя vk и токен авторизации.
+    """Функция принимает id-пользователя vk.
     Вызывает функцию do_api_call для получения данных от api vk
     методом friends.get и возвращает json-объект.
     """
@@ -41,7 +42,7 @@ def get_user_friends(user_vk_id):
 
 
 def get_user_groups(user_vk_id):
-    """Функция принимает id-пользователя vk и токен авторизации.
+    """Функция принимает id-пользователя vk.
     Вызывает функцию do_api_call для получения данных от api vk
     методом groups.get и возвращает json-объект.
     """
@@ -54,7 +55,7 @@ def get_user_groups(user_vk_id):
 
 
 def get_friends_groups(friends_list):
-    """Функция принимает список id-пользователей VK и токен авторизации.
+    """Функция принимает список id-пользователей VK.
     В цикле вызывает функцию get_user_groups для получения данных о группах.
     Если у пользователя более 1000 групп, то берется только 1000.
     Если полученный от функции get_user_groups ответ содержит ключ "response",
@@ -80,7 +81,7 @@ def get_friends_groups(friends_list):
 
 
 def get_groups_info(groups_id):
-    """Функция получает список id групп и токен.
+    """Функция получает список id групп.
     Вызывает функцию do_api_call для осуществления
     запроса с методом groups.getById к api vk с
     целью получения данных о группах.
@@ -114,9 +115,10 @@ def get_groups_info(groups_id):
 
 
 def get_config_data(file_name):
-    """Функция получает из config-файла
-    значение переменных для
-    авторизации в api vk."""
+    """Функция получает имя файла и возвращает
+    json-объект для получения данных авторизации
+    в api vk.
+    """
 
     with open(f'{file_name}') as f:
         data = json.load(f)
