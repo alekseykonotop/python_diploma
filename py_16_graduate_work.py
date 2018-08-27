@@ -5,6 +5,11 @@ import time
 import json
 
 
+HTTP_6_TOO_MANY_REQUEST_PER_SECONDS = 6
+HTTP_18_USER_DELETED_OR_BLOCKED = 18
+HTTP_5_USER_AUTHORIZATION_ERROR = 5
+
+
 def do_api_call(method_name, **request_params):
     """Функция производит обращение к api vk и возвращает
     результат запроса. Будет делать запросы в цикле с задержкой,
@@ -20,11 +25,16 @@ def do_api_call(method_name, **request_params):
             if res.json()["response"]:
                 return res
         except KeyError:
-            if res.json()['error']['error_code'] == 6:
+            error_code = res.json()['error']['error_code']
+            if error_code == HTTP_6_TOO_MANY_REQUEST_PER_SECONDS:
                 time.sleep(0.33)
                 continue
-            elif res.json()['error']['error_code'] == 18:
+            elif error_code == HTTP_18_USER_DELETED_OR_BLOCKED:
                 return res
+            elif error_code == HTTP_5_USER_AUTHORIZATION_ERROR:
+                raise RuntimeError("Ошибка авторизации. Проверьте токен приложения.")
+            else:
+                raise RuntimeError("Неизвестная ошибка ВК")
 
 
 def get_user_friends(user_vk_id):
